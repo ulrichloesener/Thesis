@@ -1,0 +1,432 @@
+---
+title: "Evaluating Formalised Models"
+author: "Ulrich Losener"
+date: "`r Sys.Date()`"
+bibliography: references.bib
+output:
+  bookdown::html_document2: default
+  
+---
+# Markup Manuscript -- Evaluating Formalised Theories
+
+## Introduction
+
+An essential problem of psychological science is that its theories are often too vague, implicit and do not stem from a cumulative body of research @meehl1978theoretical.
+A potential solution lies in the formalisation of verbal psychological theories in the form of computational models. This forces researchers to be more specific, objective, and explicit about their theories @guest2020computational, @borsboom2021theory. Furthermore, previously implicit assumptions are made explicit @smaldino2017models which is important for good scientific practice @walker2003making.
+In this study, we adress this problem by providing practical guidance for applied researchers who wish to build formal models. We create an example of a simple computational model of the mental disorder @specific phobia based on a verbal model using a much simpler mathematical modeling approach than non-linear differential equations, the primary tool used in clinical psychology so far @hosseinichimeh2016estimating, @robinaugh2020invisible.
+
+## Model Building
+
+### The Verbal Model
+
+The prevailing cognitive-behavioural theory of specific phobia is outlined by @kennerley2016introduction. This theory aims to explain specific phobia in terms of cognitive-behavioural reactions to phobic triggers. The core idea is that specific phobia develops and is maintained by a so-called "vicious cycle" whereby individuals experience phobic triggers and react with safety behaviours to escape or avoid those triggers. These behaviours in turn strengthen beliefs that the stimulus a threat.
+
+![Graphical representation of the verbal model of specific phobia.  Dotted arrows indicate anegative relationship.](C://Users/Otty/Desktop/MSBBSS/3rd Semester/Markup/MarkupManuscript/Images/cbt_model.PNG)
+
+### The Computational Model
+
+We formalise the verbal model using mathematical expressions and express it in a multivariate system that evolves over time. The variables and the relations specified in the verbal model will be preserved.  The variables \textit{encounter, trigger, rsb, and psb} are chosen to be a binary variables for simplicity. \textit{Anxiety} and \textit{belief} are treated as discrete with four categories, respectively. This is done in order to be able to express more variation while still keeping some simplicity. To express the values of the variables at different timepoints, we use a Markov model -- a stochastic process where the value of each variable at timepoint $t_{1}$ depends only on values at the nearest previous timepoint $t_{0}$ (called the Markov property). In Markov chains, "transition matrices" contain the probabilities of transitioning from one state to another. They are denoted by $P$ with $n$ rows $i=1,...,n$,  $k$ columns $j=1, ...,k$, and $nk$ elements. We go from rows to columns, meaning that the rows refer to the current state of a variable at $t_{0}$ and the columns to the future state at $t_{1}$. Hence, the probability to transition from state $i$ to state $j$ is element $p_{ij}$, on row $i$ and column $j$ of $P$. In order for $P$ to be a valid transition matrix, all its entries must be positive ($p_{ij} \ge 0$, for all $i, j$) and all rows must sum up to one ($\sum_{i=1}^{n}p_{ij} = 1$, for all j). 
+
+Each occasion $t$ in the model represents one day. Hence, the values of each variables can only be determined once a day (i.e., there can only be one encounter a day) in this model. We chose the transition probabilities of each variable to align with what we would expect based on the verbal model. For example, anxiety can never increase without the presence of a trigger, and negative belief cannot decrease when safety behaviours are present. The mathematical representations of each transition matrix are explained below.
+
+#### Encounter
+
+Encounter is zero when no phobic stimulus has been encountered at $t_{0}$ and one if there has been an encounter. This variable contains no information about how this stimulus is perceived (e.g., as a trigger).
+
+$$P_{enc} = \left[\begin{array}
+            {rrr}
+            p_{00enc} & p_{01enc} \\
+            p_{10enc} & p_{11enc}
+            \end{array}\right]$$
+
+where $p_{00}$ is the probability of the value for \textit{encounter} to stay at zero when moving to the next time point, $p_{01}$ is the probability of the value to change from zero to one, $p_{10}$ from one to zero, and $p_{11}$ is the probability of the value staying at one.
+    The elements of $P_{enc}$ depend on the presence of PSB the day before and are defined as follows:
+
+\begin{align*}
+p_{00enc}&=0.4+0.2psb_{t-1}\\
+p_{01enc}&=1-p_{00enc}\\
+p_{10enc}&=p_{00enc}\\
+p_{11enc}&=p_{01enc}
+\end{align*}
+
+As can be seen from the definition of $p_{00enc}$, the probability of encountering no stimulus at timepoint $t_{0}$ after no stimulus has been encountered the previous day is .4 if PSB was absent the day before (at $t_{-1}$) and .6 if PSB was present. Note that in this case, the second row is identical to the first one. This means that the probability of encountering a relevant stimulus is not influenced by whether an encounter was present at $t_{-1}$ but only by whether PSB was present at $t_{-1}$. Strictly speaking, the transition matrix of this variable could therefore be replaced by a single linear regression, however, it is kept in matrix notation for the sake of consistency. We chose the values of 0.4 and 0.6 such that the Markov chain for this variable conforms to our educated guess about the occurrence of encounters. Our intuition is that these become less frequent when actively avoided.
+
+#### Trigger
+
+This binary variable indicates whether a stimulus is perceived as a threat ($0=no$, $1=yes$). With higher levels of negative belief towards a stimulus, the likelihood of being triggered increases @bouchard2012description. In our model, we chose to allow \textit{triggers} to occur even when the relevant stimulus is not encountered in vivo, just by the thought of an encounter and its consequences alone @kraft2010use. We opted to make this scenario less likely than being triggered directly by an encounter.
+        
+The transition matrix of \textit{trigger} is denoted by
+$$P_{trig} = \left[\begin{array}
+            {rrr}
+            p_{00trig} & p_{01trig} \\
+            p_{10trig} & p_{11trig}
+            \end{array}\right]$$
+        The elements of $P_{trig}$ depend on the presence of an encounter at $t_{0}$ as well as the degree of negative belief towards the stimulus at $t_{-1}$ and are defined as follows:
+
+\begin{align*}
+p_{00trig}&=1-p_{01trig}\\
+p_{01trig}&=0.2enc_{t0}(bel_{t-1}+1) + 0.15(1-enc_{t0})bel_{t-1}\\
+p_{10trig}&=p_{00trig}\\
+p_{11trig}&=p_{01trig}
+\end{align*}
+
+If there is no encounter at $t_{0}$, then the first term of $p_{01trig}$ becomes zero and only the second term remains. In this case, the probability of being triggered is $0.15bel_{t-1}$ -- a number between 0 and .45 depending on the degree of negative belief. Hence, in this model, it is possible for a person to be triggered in absence of an encounter. Note that we chose the numbers 0.2 and 0.15 so that triggers would occur every few days.
+
+#### Anxiety
+
+The categorical variable \textit{anxiety} captures the level of phobic anxiety on a scale from zero to three, with higher values indicating higher levels of anxiety. Phobic anxiety can only be present if there is a trigger, and it increases with more negative beliefs.
+        
+The transition matrix of \textit{anxiety} is denoted by
+$$P_{anx} = \left[\begin{array}
+            {rrrr}
+            p_{00anx} & p_{01anx} & p_{02anx} & p_{03anx}\\
+            p_{10anx} & p_{11anx} & p_{12anx} & p_{13anx}\\
+            p_{20anx} & p_{21anx} & p_{22anx} & p_{23anx}\\
+            p_{30anx} & p_{31anx} & p_{32anx} & p_{33anx}
+            \end{array}\right]$$
+
+Because \textit{anxiety} can take on integers between zero and three, $P_{anx}$ is a 4x4 matrix. The elements of $P_{anx}$ depend on both the presence of a trigger and the degree of negative belief towards the feared stimulus and are defined as follows:
+\begin{multicols}{2}
+\begin{align*}
+p_{00anx}&=0.3trig_{t0}(bel_{t-1}+1)\\
+p_{01anx}&=0.5trig_{t0}(bel_{t-1}+1)\\
+p_{02anx}&=0.2trig_{t0}(bel_{t-1}+1)\\
+p_{03anx}&=1-(p_{00anx}+p_{01anx}+p_{02anx})\\
+p_{10anx}&=0.1trig_{t0}(bel_{t-1}+1)\\
+p_{11anx}&=0.3trig_{t0}(bel_{t-1}+1)\\
+p_{12anx}&=0.6trig_{t0}(bel_{t-1}+1)\\
+p_{13anx}&=1-(p_{10anx}+p_{11anx}+p_{12anx})\\
+\end{align*}
+
+\begin{align*}
+p_{20anx}&=0.1trig_{t0}(bel_{t-1}+1)\\
+p_{21anx}&=0.3trig_{t0}(bel_{t-1}+1)\\
+p_{22anx}&=0.5trig_{t0}(bel_{t-1}+1)\\
+p_{23anx}&=1-(p_{20anx}+p_{21anx}+p_{22anx})\\
+p_{30anx}&=0.1trig_{t0}(bel_{t-1}+1)\\
+p_{31anx}&=0.3trig_{t0}(bel_{t-1}+1)\\
+p_{32anx}&=0.5trig_{t0}(bel_{t-1}+1)\\
+p_{33anx}&=1-(p_{30anx}+p_{31anx}+p_{32anx})\\
+\end{align*}
+\end{multicols}
+
+We chose transition probabilities of \textit{anxiety} such that generally, the variable is more likely to transition to a value nearest to the previous one than it is to "jump" to a value beyond that. This was done so that anxiety levels do not change to fast from one day to another and that there is some coherence within persons, motivated by the fact that there is some stability of the trait "anxiety" within people @{bieling1998state}.
+
+#### Restorative Safety Behaviour
+
+This binary variable indicates the presence of behaviour directed at restoring perceived safety in an anxiety-inducing situation ($0=absent$, $1=present$). RSB can only be present when some level of anxiety is experienced @goetz2016functional.
+
+The transition matrix of RSB is denoted by
+$$P_{rsb} = \left[\begin{array}
+            {rrr}
+            p_{00rsb} & p_{01rsb} \\
+            p_{10rsb} & p_{11rsb}
+            \end{array}\right]$$
+The elements of $P_{rsb}$ depend on the level of anxiety at $t_{0}$ and are defined as follows:
+
+\begin{align*}
+p_{00rsb}&=1-p_{01rsb}\\
+p_{01rsb}&=-e^{-anx_{t0}}+1\\
+p_{10rsb}&=p_{00rsb}\\
+p_{11rsb}&=-e^{-2anx_{t0}}+1
+\end{align*}
+
+The probability of RSB being present at $t_{0}$ is zero when there is no anxiety at $t_{0}$. With increasing levels of anxiety, the probability of RSB rises up to .95, as expressed by the negative exponential function of \textit{anxiety}. If RSB were present the day before, a person is slightly more likely to engage in this behaviour again.
+
+#### Preventive Safety Behaviour
+
+This binary variable indicates the presence of behaviour directed at avoiding the fearful situation @goetz2016functional. The occurrence of PSB is more likely when negative beliefs are stronger.
+          
+The transition matrix of PSB is denoted by
+$$P_{psb} = \left[\begin{array}
+            {rrr}
+            p_{00psb} & p_{01psb} \\
+            p_{10psb} & p_{11psb}
+            \end{array}\right]$$
+The elements of $P_{psb}$ depend on the level of negative belief at $t_{0}$ and are defined as follows:
+
+\begin{multicols}{2}
+\begin{align*}
+p_{00psb}&=  \begin{cases}
+                0       & \quad \text{if } bel_{t0}=0\\
+                0.5     & \quad \text{if } bel_{t0}=1\\
+                0.7     & \quad \text{if } bel_{t0}=2\\
+                0.9     & \quad \text{if } bel_{t0}=3\\    
+              \end{cases}\\
+p_{01psb}&=1-p_{00psb}
+\end{align*}
+
+\begin{align*}
+p_{10psb}&=\begin{cases}
+                0       & \quad \text{if } bel_{t0}=0\\
+                0.4     & \quad \text{if } bel_{t0}=1\\
+                0.6     & \quad \text{if } bel_{t0}=2\\
+                0.8     & \quad \text{if } bel_{t0}=3\\    
+              \end{cases}\\
+p_{11psb}&=p_{01psb}
+\end{align*}
+\end{multicols}
+
+Again, if PSB were present the day before, a person is slightly more likely to engage in this behaviour again.
+
+#### Negative Belief
+
+The variable \textit{negative belief} entails the degree to which a person is convinced that the phobic stimulus is indeed dangerous. This variable is positively influenced by RSB and PSB, as the presence of one or both of these behaviours hinder a potential disconfirmation of the held belief @goetz2016functional. 
+         
+The transition matrix of \textit{negative belief} is denoted by
+$$P_{bel} = \left[\begin{array}
+            {rrrr}
+            p_{00bel} & p_{01bel} & p_{02bel} & p_{03bel}\\
+            p_{10bel} & p_{11bel} & p_{12bel} & p_{13bel}\\
+            p_{20bel} & p_{21bel} & p_{22bel} & p_{23bel}\\
+            p_{30bel} & p_{31bel} & p_{32bel} & p_{33bel}
+            \end{array}\right]$$
+
+The elements of $P_{bel}$ depend on the presence of RSB and PSB and are defined as follows:
+
+\begin{align*}
+p_{00bel}&=\begin{cases}
+                0.9     & \quad \text{if } trig_{t0}=0\\
+                1       & \quad \text{if } trig_{t0}=1 \bigcup rsb_{t0}=1 \bigcup psb_{t0}=1\\
+                0.4     & \quad \text{if } (trig_{t0}=1 \bigcup rsb_{t0}=1) \bigcap (trig_{t0}=1 \bigcup psb_{t0}=1)\\
+                0.1     & \quad \text{else}   
+            \end{cases}\\
+p_{01bel}&=1-p_{00bel}\\
+p_{02bel}&=0\\
+p_{03bel}&=0\\
+p_{10bel}&=\begin{cases}
+                0        & \quad \text{if } trig_{t0}=0\\
+                0.8      & \quad \text{if } trig_{t0}=1 \bigcup rsb_{t0}=1 \bigcup psb_{t0}=1\\
+                0.1      & \quad \text{if } (trig_{t0}=1 \bigcup rsb_{t0}=1) \bigcap (trig_{t0}=1 \bigcup psb_{t0}=1)\\
+                0        & \quad \text{else}   
+            \end{cases}\\
+p_{11bel}&=\begin{cases}
+                0.9      & \quad \text{if } trig_{t0}=0\\
+                0.2      & \quad \text{if } trig_{t0}=1 \bigcup rsb_{t0}=1 \bigcup psb_{t0}=1\\
+                0.1      & \quad \text{if } (trig_{t0}=1 \bigcup rsb_{t0}=1) \bigcap (trig_{t0}=1 \bigcup psb_{t0}=1)\\
+                0.1      & \quad \text{else}   
+            \end{cases}\\
+p_{12bel}&=1-(p_{10bel}+p_{11bel})\\
+p_{13bel}&=0\\
+p_{20bel}&=0\\
+p_{21bel}&=\begin{cases}
+                0       & \quad \text{if } trig_{t0}=0\\
+                0.9     & \quad \text{if } trig_{t0}=1 \bigcup rsb_{t0}=1 \bigcup psb_{t0}=1\\
+                0.1     & \quad \text{if } (trig_{t0}=1 \bigcup rsb_{t0}=1) \bigcap (trig_{t0}=1 \bigcup psb_{t0}=1)\\
+                0       & \quad \text{else}   
+            \end{cases}\\
+p_{22bel}&=\begin{cases}
+                0.9     & \quad \text{if } trig_{t0}=0\\
+                0.1     & \quad \text{if } trig_{t0}=1 \bigcup rsb_{t0}=1 \bigcup psb_{t0}=1\\
+                0.1     & \quad \text{if } (trig_{t0}=1 \bigcup rsb_{t0}=1) \bigcap (trig_{t0}=1 \bigcup psb_{t0}=1)\\
+                0.1     & \quad \text{else}   
+            \end{cases}\\
+p_{23bel}&=1-(p_{21bel}+p_{22bel})\\
+p_{30bel}&=0\\
+p_{31bel}&=0\\
+p_{32bel}&=\begin{cases}
+                0.1     & \quad \text{if } trig_{t0}=0\\
+                0.95    & \quad \text{if } trig_{t0}=1 \bigcup rsb_{t0}=1 \bigcup psb_{t0}=1\\
+                0.1     & \quad \text{if } (trig_{t0}=1 \bigcup rsb_{t0}=1) \bigcap (trig_{t0}=1 \bigcup psb_{t0}=1)\\
+                0       & \quad \text{else}   
+            \end{cases}\\
+p_{33bel}&=1-p_{32bel}\\
+\end{align*}
+
+Note that all probabilities of a "jump" from one value to another non-consecutive value (e.g., $p_{02bel}$) are fixed to zero. Thus, we only allow transitions to neighbouring values at a time in order to make \textit{belief} a more slowly updating variable than the other ones. All transition probabilities are formulated in a way that \textit{belief} increases with the presence of RSB and PSB, and that it can only decrease if a trigger is present while safety behaviours are not, in line with the findings of \citet{bohnlein2020factors}. Otherwise, merely not encountering the feared stimulus for a while would cause the negative beliefs to decrease.
+
+## Data generation
+Using the computational model described above, we generated data on the six variables over 30 occasions (Figure 2) using base R version 4.1.2 (R Core Team, 2020). Some basic assumptions we made when creating the transition probabilities are reflected here: There can be no anxiety without a trigger, and there can be no RSB without anxiety. We set all starting values to zero in order to model a possible trajectory of an initially healthy person developing a specific phobia. As can be seen from the plot, the negative belief towards the stimulus increases slowly but steadily over time, and once a maximum level of negative belief is reached, strong anxiety is elicited more often. The chronicity of this disorder @choy2007treatment becomes apparent: because of the vicious cycle, negative belief continuously increases, making \textit{anxiety} spike over and over again. There is no way out because safety behaviour caused by anxiety further strengthen the negative belief.
+
+```{r Starting Values, echo=FALSE}
+# set number of timepoints, each timepoint represents one day
+tpoints <- 30
+
+# storing space and starting value for the binary variable "stimulus encounter"
+enc <- rep(NA, tpoints)
+enc[1] <- 0
+
+# storing space and starting value for the binary variable "trigger"
+trig <- rep(NA, tpoints) 
+trig[1] <- 0
+
+# storing space and starting value for the categorical (0-3) variable "anxiety"
+anx <- rep(NA, tpoints) 
+anx[1] <- 0
+
+# storing space and starting value for the binary variable "restorative safety behaviour"
+rsb <- rep(NA, tpoints) 
+rsb[1] <- 0
+
+# storing space and starting value for the categorical (0-3) variable "belief"
+bel <- rep(NA, tpoints) 
+bel[1] <- 0
+
+# storing space and starting value for the binary variable "preventive safety behavior"
+psb <- rep(NA, tpoints) 
+psb[1] <- 0
+```
+
+```{r Markov chain, echo=FALSE}
+# Set seed for reproducibility
+set.seed(123)
+
+for (i in 2:tpoints){
+  
+  # Transition probabilities of the variable "stimulus encounter"
+  p00.enc <- .4+.2*psb[i-1] 
+  p01.enc <- 1-p00.enc
+  p10.enc <- p00.enc        
+  p11.enc <- 1-p10.enc
+  # Transition probabilities combined in matrix
+  trans.enc <- matrix(c(p00.enc, p01.enc, 
+                        p10.enc, p11.enc), byrow=T, nrow=2)
+  # Value for "stimulus encounter" is determined in each iteration as follows, the ifelse statement indicates which row of the transition matrix to use
+  enc[i] <- ifelse(enc[i-1] == 0,
+                 rbinom(1,1,prob=trans.enc[1,2]),
+                 rbinom(1,1,prob=trans.enc[2,2]))
+  
+  # Transition probabilities of the variable "trigger"
+  p01.trig <- .2*enc[i]*(bel[i-1]+1) + .15*(1-enc[i])*bel[i-1]
+  p00.trig <- 1-p01.trig
+  p11.trig <- p01.trig
+  p10.trig <- p00.trig
+  # Transition probabilities combined in matrix
+  trans.trig <- matrix(c(p00.trig, p01.trig,
+                         p10.trig, p11.trig), byrow=T, nrow=2)
+  # Value for "trigger" is determined in each iteration as follows
+  trig[i] <- ifelse(trig[i-1] == 0,                      
+                 rbinom(1,1,prob=trans.trig[1,2]),
+                 rbinom(1,1,prob=trans.trig[2,2]))
+  
+  # Transition probabilities of the variable "anxiety"
+  p00.anx <- .3/(bel[i-1]+1)
+  p01.anx <- .5/(bel[i-1]+1)
+  p02.anx <- .2/(bel[i-1]+1)
+  p03.anx <- 1-(p00.anx+p01.anx+p02.anx)
+  p10.anx <- .1/(bel[i-1]+1)
+  p11.anx <- .3/(bel[i-1]+1)
+  p12.anx <- .6/(bel[i-1]+1)
+  p13.anx <- 1-(p10.anx+p11.anx+p12.anx)
+  p20.anx <- .1/(bel[i-1]+1)
+  p21.anx <- .3/(bel[i-1]+1)
+  p22.anx <- .5/(bel[i-1]+1)
+  p23.anx <- 1-(p20.anx+p21.anx+p22.anx)
+  p30.anx <- .1/(bel[i-1]+1)
+  p31.anx <- .3/(bel[i-1]+1)
+  p32.anx <- .5/(bel[i-1]+1)
+  p33.anx <- 1-(p30.anx+p31.anx+p32.anx)  
+  # Transition probabilities combined in matrix
+  trans.anx <- matrix(c(p00.anx, p01.anx, p02.anx, p03.anx,
+                         p10.anx, p11.anx, p12.anx, p13.anx,
+                         p20.anx, p21.anx, p22.anx, p23.anx,
+                         p30.anx, p31.anx, p32.anx, p33.anx),
+                       byrow = T, nrow = 4)  
+  # Value for "anxiety" is determined in each iteration as follows
+  anx[i] <- if (trig[i]==0) {0}
+             else if (trig[i]==1 & anx[i-1]==0) {
+               sample(c(0,1,2,3), 1, prob=c(p00.anx,p01.anx,p02.anx,p03.anx))}
+             else if (trig[i]==1 & anx[i-1]==1) {
+               sample(c(0,1,2,3), 1, prob=c(p10.anx,p11.anx,p12.anx,p13.anx))}
+             else if (trig[i]==1 & anx[i-1]==2) {
+               sample(c(0,1,2,3), 1, prob=c(p20.anx,p21.anx,p22.anx,p23.anx))}
+             else {
+               sample(c(0,1,2,3), 1, prob=c(p30.anx,p31.anx,p32.anx,p33.anx))}
+  
+  # Transition probabilities of the variable "restorative safety behaviour"
+  p01.rsb <- -exp(-anx[i])+1
+  p00.rsb <- 1-p01.rsb
+  p11.rsb <- -exp(-2*anx[i])+1
+  p10.rsb <- 1-p11.rsb
+  # Transition probabilities combined in matrix
+  trans.rsb <- matrix(c(p00.rsb, p01.rsb,
+                        p10.rsb, p11.rsb), byrow=T, nrow=2)
+  # Value for "restorative safety behaviour" is determined in each iteration as follows
+  rsb[i] <- ifelse(rsb[i-1] == 0,
+                   rbinom(1,1,prob=trans.rsb[1,2]),
+                   rbinom(1,1,prob=trans.rsb[2,2]))
+
+  # Transition probabilities of the variable "negative belief"
+  p00.bel <- if      (trig[i]==0)                                             {.9}
+             else if (trig[i]==1 & rsb[i]==0 & psb[i-1]==0)                   {1}
+             else if ((trig[i]==1 & rsb[i]==1) || (trig[i]==1 & psb[i-1]==1)) {.4} 
+             else                                                             {.1}
+  p01.bel <- 1 - p00.bel
+  p02.bel <- 0
+  p03.bel <- 0
+  
+  p10.bel <- if      (trig[i]==0)                                             {0}
+             else if (trig[i]==1 & rsb[i]==0 & psb[i-1]==0)                   {.8}
+             else if ((trig[i]==1 & rsb[i]==1) || (trig[i]==1 & psb[i-1]==1)) {.1}
+             else                                                             {0}
+  p11.bel <- if      (trig[i]==0)                                             {.9}
+             else if (trig[i]==1 & rsb[i]==0 & psb[i-1]==0)                   {.2}
+             else if ((trig[i]==1 & rsb[i]==1) || (trig[i]==1 & psb[i-1]==1)) {.1}
+             else                                                             {.1}
+  p12.bel <- 1 - (p10.bel+p11.bel)
+  p13.bel <- 0
+  
+  p20.bel <- 0
+  p21.bel <- if      (trig[i]==0)                                             {0}
+             else if (trig[i]==1 & rsb[i]==0 & psb[i-1]==0)                   {.9}
+             else if ((trig[i]==1 & rsb[i]==1) || (trig[i]==1 & psb[i-1]==1)) {.1}
+             else                                                             {0}
+  p22.bel <- if      (trig[i]==0)                                             {.9}
+             else if (trig[i]==1 & rsb[i]==0 & psb[i-1]==0)                   {.1}
+             else if ((trig[i]==1 & rsb[i]==1) || (trig[i]==1 & psb[i-1]==1)) {.1}
+             else                                                             {.1}
+  p23.bel <- 1 - (p21.bel+p22.bel)
+  
+  p30.bel <- 0
+  p31.bel <- 0
+  p32.bel <- if      (trig[i]==0)                                             {.1}
+             else if (trig[i]==1 & rsb[i]==0 & psb[i-1]==0)                   {.95}
+             else if ((trig[i]==1 & rsb[i]==1) || (trig[i]==1 & psb[i-1]==1)) {.1}
+             else                                                             {0}
+  p33.bel <- 1 - (p30.bel+p32.bel)  
+  # Transition probabilities combined in matrix
+  trans.bel <- matrix(c(p00.bel, p01.bel, p02.bel, p03.bel,
+                        p10.bel, p11.bel, p12.bel, p13.bel,
+                        p20.bel, p21.bel, p22.bel, p23.bel,
+                        p30.bel, p31.bel, p32.bel, p33.bel),
+                      byrow = T, nrow = 4)
+  # Value for "negative belief" is determined in each iteration as follows
+  bel[i] <- if (bel[i-1]==0) {
+              sample(c(0, 1, 2, 3), 1, prob=c(p00.bel,p01.bel,p02.bel,p03.bel))}
+            else if (bel[i-1]==1) {
+              sample(c(0, 1, 2, 3), 1, prob=c(p10.bel,p11.bel,p12.bel,p13.bel))}
+            else if (bel[i-1]==2) {
+              sample(c(0, 1, 2, 3), 1, prob=c(p20.bel,p21.bel,p22.bel,p23.bel))}
+            else {
+              sample(c(0, 1, 2, 3), 1, prob=c(p30.bel,p31.bel,p32.bel,p33.bel))}
+
+  # Value for "preventive safety behaviour" is determined in each iteration as follows
+  psb[i] <- if      (bel[i]==0) {0}
+            else if (bel[i]==1) {rbinom(1,1,prob=.5)}
+            else if (bel[i]==2) {rbinom(1,1,prob=.7)}
+            else                {rbinom(1,1,prob=.9)}
+
+}
+```
+
+
+```{r}
+par(mfrow=c(2,3))
+plot(enc, type="b", xlab="time (days)", main ="encounter", bty="n", yaxt="n")
+axis(side = 2, at=0:1)
+plot(trig, type="b", xlab="time (days)", main ="trigger", bty="n", yaxt="n")
+axis(side = 2, at=0:1)
+plot(anx, type="b", xlab="time (days)", main="anxiety", bty="n", yaxt="n")
+axis(side = 2, at=0:3)
+plot(rsb, type="b", xlab="time (days)", main="restorative SB", bty="n", yaxt="n")
+axis(side = 2, at=0:1)
+plot(bel, type="b", xlab="time (days)", main="belief", bty="n", yaxt="n")
+axis(side = 2, at=0:3)
+plot(psb, type="b", xlab="time (days)", main="preventive SB", bty="n", yaxt="n")
+axis(side = 2, at=0:1)
+```
+
+
+
+
+
